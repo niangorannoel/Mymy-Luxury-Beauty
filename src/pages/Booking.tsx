@@ -9,11 +9,13 @@ import { fr } from 'date-fns/locale';
 export default function Booking({ 
   selectedProducts, 
   settings, 
-  onClearCart 
+  onClearCart,
+  onAddAppointment
 }: { 
   selectedProducts: Product[], 
   settings: Settings,
-  onClearCart: () => void
+  onClearCart: () => void,
+  onAddAppointment: (a: any) => void
 }) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,26 +37,19 @@ export default function Booking({
     
     const formData = new FormData(e.currentTarget);
     const bookingData = {
-      clientName: formData.get('name'),
-      clientEmail: formData.get('email'),
+      clientName: formData.get('name') as string,
+      clientEmail: formData.get('email') as string,
       appointmentDate: format(selectedDate, 'yyyy-MM-dd'),
-      appointmentTime: formData.get('time'),
+      appointmentTime: formData.get('time') as string,
       totalPrice: `${totalPrice.toLocaleString()} FCFA`,
       products: selectedProducts
     };
 
     try {
-      const res = await fetch('/api/appointments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bookingData)
-      });
-      
-      if (res.ok) {
-        setIsSuccess(true);
-        onClearCart();
-        setTimeout(() => navigate('/'), 3000);
-      }
+      onAddAppointment(bookingData);
+      setIsSuccess(true);
+      onClearCart();
+      setTimeout(() => navigate('/'), 3000);
     } catch (err) {
       console.error('Booking error:', err);
     } finally {

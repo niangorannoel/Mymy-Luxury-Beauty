@@ -1,71 +1,36 @@
 import { useState, ChangeEvent, useEffect } from 'react';
 import { Product, Settings, Appointment } from '../types';
-import { LayoutGrid, Package, Settings as SettingsIcon, Plus, Trash2, Edit2, Save, X, ArrowLeft, CalendarCheck, Clock, User, Mail, Check, XCircle, Search } from 'lucide-react';
+import { LayoutGrid, Package, Settings as SettingsIcon, Plus, Trash2, Edit2, Save, X, ArrowLeft, CalendarCheck, Clock, User, Mail, Check, XCircle, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Admin({ 
   products, 
   settings, 
+  appointments,
   onUpdateSettings, 
   onAddProduct, 
   onUpdateProduct, 
-  onDeleteProduct 
+  onDeleteProduct,
+  onUpdateAppointmentStatus,
+  onDeleteAppointment
 }: { 
   products: Product[], 
   settings: Settings,
+  appointments: Appointment[],
   onUpdateSettings: (s: Settings) => void,
   onAddProduct: (p: Omit<Product, 'id'>) => void,
   onUpdateProduct: (id: number, p: Omit<Product, 'id'>) => void,
-  onDeleteProduct: (id: number) => void
+  onDeleteProduct: (id: number) => void,
+  onUpdateAppointmentStatus: (id: number, status: string) => void,
+  onDeleteAppointment: (id: number) => void
 }) {
   const [activeTab, setActiveTab] = useState<'settings' | 'products' | 'appointments'>('appointments');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [tempSettings, setTempSettings] = useState<Settings>(settings);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [productSearchTerm, setProductSearchTerm] = useState('');
-
-  useEffect(() => {
-    if (activeTab === 'appointments') {
-      fetchAppointments();
-    }
-  }, [activeTab]);
-
-  const fetchAppointments = async () => {
-    setLoadingAppointments(true);
-    try {
-      const res = await fetch('/api/appointments');
-      const data = await res.json();
-      setAppointments(data);
-    } catch (err) {
-      console.error('Error fetching appointments:', err);
-    } finally {
-      setLoadingAppointments(false);
-    }
-  };
-
-  const updateAppointmentStatus = async (id: number, status: string) => {
-    try {
-      await fetch(`/api/appointments/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      setAppointments(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-    } catch (err) {
-      console.error('Error updating status:', err);
-    }
-  };
-
-  const deleteAppointment = async (id: number) => {
-    try {
-      await fetch(`/api/appointments/${id}`, { method: 'DELETE' });
-      setAppointments(prev => prev.filter(a => a.id !== id));
-    } catch (err) {
-      console.error('Error deleting appointment:', err);
-    }
-  };
+  const [appointmentPage, setAppointmentPage] = useState(1);
+  const appointmentsPerPage = 5;
 
   const handleFileUpload = (e: ChangeEvent<HTMLInputElement>, callback: (base64: string) => void) => {
     const file = e.target.files?.[0];
@@ -133,62 +98,61 @@ export default function Admin({
               <p className="text-white/50 mt-2">Consultez et traitez les demandes de soins de vos clients.</p>
             </header>
 
-            {loadingAppointments ? (
-              <div className="text-white/40 animate-pulse">Chargement des rendez-vous...</div>
-            ) : (
-              <div className="space-y-6">
-                {appointments.map(apt => (
-                  <div key={apt.id} className="bg-white/5 border border-white/10 rounded-2xl p-8 space-y-6">
-                    <div className="flex justify-between items-start">
-                      <div className="flex gap-6">
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-white/40">Client</p>
-                          <h4 className="font-medium text-lg">{apt.clientName}</h4>
-                          <p className="text-sm text-white/60">{apt.clientEmail}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-white/40">Date & Heure</p>
-                          <p className="text-sm font-medium">{new Date(apt.appointmentDate).toLocaleDateString('fr-FR')} à {apt.appointmentTime}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-white/40">Total</p>
-                          <p className="text-sm font-bold text-white">{apt.totalPrice}</p>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] uppercase tracking-widest text-white/40">Statut</p>
-                          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${
-                            apt.status === 'Confirmé' ? 'bg-green-500/20 text-green-500' : 
-                            apt.status === 'Annulé' ? 'bg-red-500/20 text-red-500' : 
-                            'bg-yellow-500/20 text-yellow-500'
-                          }`}>
-                            {apt.status}
-                          </span>
-                        </div>
+            <div className="space-y-6">
+              {appointments
+                .slice((appointmentPage - 1) * appointmentsPerPage, appointmentPage * appointmentsPerPage)
+                .map(apt => (
+                <div key={apt.id} className="bg-white/5 border border-white/10 rounded-2xl p-8 space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div className="flex gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40">Client</p>
+                        <h4 className="font-medium text-lg">{apt.clientName}</h4>
+                        <p className="text-sm text-white/60">{apt.clientEmail}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => updateAppointmentStatus(apt.id, 'Confirmé')}
-                          className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500/20 transition-colors"
-                          title="Confirmer"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => updateAppointmentStatus(apt.id, 'Annulé')}
-                          className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors"
-                          title="Annuler"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => { if(confirm('Supprimer définitivement ?')) deleteAppointment(apt.id); }}
-                          className="p-2 bg-white/5 text-white/40 rounded-lg hover:bg-white/10 transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40">Date & Heure</p>
+                        <p className="text-sm font-medium">{new Date(apt.appointmentDate).toLocaleDateString('fr-FR')} à {apt.appointmentTime}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40">Total</p>
+                        <p className="text-sm font-bold text-white">{apt.totalPrice}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-widest text-white/40">Statut</p>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded ${
+                          apt.status === 'Confirmé' ? 'bg-green-500/20 text-green-500' : 
+                          apt.status === 'Annulé' ? 'bg-red-500/20 text-red-500' : 
+                          'bg-yellow-500/20 text-yellow-500'
+                        }`}>
+                          {apt.status}
+                        </span>
                       </div>
                     </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => onUpdateAppointmentStatus(apt.id, 'Confirmé')}
+                        className="p-2 bg-green-500/10 text-green-500 rounded-lg hover:bg-green-500/20 transition-colors"
+                        title="Confirmer"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => onUpdateAppointmentStatus(apt.id, 'Annulé')}
+                        className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/20 transition-colors"
+                        title="Annuler"
+                      >
+                        <XCircle className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => { if(confirm('Supprimer définitivement ?')) onDeleteAppointment(apt.id); }}
+                        className="p-2 bg-white/5 text-white/40 rounded-lg hover:bg-white/10 transition-colors"
+                        title="Supprimer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
 
                     <div className="pt-6 border-t border-white/5">
                       <p className="text-[10px] uppercase tracking-widest text-white/40 mb-4">Produits sélectionnés pour le soin</p>
@@ -206,6 +170,37 @@ export default function Admin({
                     </div>
                   </div>
                 ))}
+
+                {appointments.length > appointmentsPerPage && (
+                  <div className="flex items-center justify-center gap-4 pt-8">
+                    <button 
+                      onClick={() => setAppointmentPage(prev => Math.max(1, prev - 1))}
+                      disabled={appointmentPage === 1}
+                      className="p-2 rounded-full border border-white/10 hover:bg-white/5 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <div className="flex gap-2">
+                      {Array.from({ length: Math.ceil(appointments.length / appointmentsPerPage) }).map((_, i) => (
+                        <button 
+                          key={i}
+                          onClick={() => setAppointmentPage(i + 1)}
+                          className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${appointmentPage === i + 1 ? 'bg-white text-black' : 'hover:bg-white/5 text-white/40'}`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    <button 
+                      onClick={() => setAppointmentPage(prev => Math.min(Math.ceil(appointments.length / appointmentsPerPage), prev + 1))}
+                      disabled={appointmentPage === Math.ceil(appointments.length / appointmentsPerPage)}
+                      className="p-2 rounded-full border border-white/10 hover:bg-white/5 disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+
                 {appointments.length === 0 && (
                   <div className="text-center py-20 bg-white/5 border border-white/10 rounded-2xl">
                     <CalendarCheck className="w-12 h-12 text-white/10 mx-auto mb-4" />
@@ -213,9 +208,8 @@ export default function Admin({
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        ) : activeTab === 'settings' ? (
+            </div>
+          ) : activeTab === 'settings' ? (
           <div className="max-w-3xl">
             <header className="mb-12">
               <h2 className="text-3xl font-serif">Configuration du Site</h2>
